@@ -13,6 +13,8 @@ import Dashboard from "./pages/Dashboard.jsx"
 import LoadingSpinner from "./components/LoadingSpinner.jsx"
 import ProtectedRoute from "./components/ProtectedRoute.jsx"
 import OfflineBanner from "./components/OfflineBanner.jsx"
+import CurrencyVisualizer from "./pages/CurrencyVisualizer.jsx"
+import MarketAnalysis from "./pages/MarketAnalysis.jsx"
 
 function App() {
   const { loading } = useAuth()
@@ -43,6 +45,22 @@ function App() {
             element={
               <ProtectedRoute>
                 <Dashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/visualizer"
+            element={
+              <ProtectedRoute>
+                <CurrencyVisualizer />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/market-analysis"
+            element={
+              <ProtectedRoute>
+                <MarketAnalysis />
               </ProtectedRoute>
             }
           />

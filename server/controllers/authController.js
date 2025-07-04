@@ -16,7 +16,7 @@ export const signup = async (req, res) => {
     const token = generateToken(user._id);
     await user.addRefreshToken(token);
 
-    res.status(201).json({ token, user: { id: user._id, name: user.name, email: user.email } });
+    res.status(201).json({ data: { token, user: { id: user._id, name: user.name, email: user.email } } });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -35,7 +35,7 @@ export const login = async (req, res) => {
     await user.addRefreshToken(token);
     await user.updateLastLogin();
 
-    res.json({ token, user: { id: user._id, name: user.name, email: user.email } });
+    res.json({ data: { token, user: { id: user._id, name: user.name, email: user.email } } });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

@@ -19,20 +19,7 @@ const LoginPage = () => {
 
   const onSubmit = async (data) => {
     setIsLoading(true);
-    try Merge two objects and log the result.
-Ans:
-const obj1 = { a: 1, b: 2 };
-const obj2 = { b: 3, c: 4 };
-const mergedObj = { ...obj1, ...obj2 };
-Loop through all keys and values of an object.
-Ans : 
-for (const [key, value] of Object.entries(mergedObj)) {
-  console.log(`${key}: ${value}`);
-}
-Convert an object to an array of key-value pairs.
-Ans:
-const objToArray = Object.entries(mergedObj);
-
+    try {
       const result = await login(data.email, data.password);
       if (result.success) {
         navigate('/dashboard');

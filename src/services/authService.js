@@ -56,10 +56,10 @@ api.interceptors.response.use(
 export const login = async (email, password) => {
   try {
     const response = await api.post('/auth/login', { email, password });
-    const { user, accessToken } = response.data.data;
+    const { user, token } = response.data.data;
     
-    localStorage.setItem('accessToken', accessToken);
-    return { user, token: accessToken };
+    localStorage.setItem('accessToken', token);
+    return { user, token };
   } catch (error) {
     throw new Error(error.response?.data?.message || 'Login failed');
   }
@@ -68,10 +68,10 @@ export const login = async (email, password) => {
 export const signup = async (name, email, password) => {
   try {
     const response = await api.post('/auth/signup', { name, email, password });
-    const { user, accessToken } = response.data.data;
+    const { user, token } = response.data.data;
     
-    localStorage.setItem('accessToken', accessToken);
-    return { user, token: accessToken };
+    localStorage.setItem('accessToken', token);
+    return { user, token };
   } catch (error) {
     throw new Error(error.response?.data?.message || 'Signup failed');
   }
@@ -90,8 +90,8 @@ export const logout = async () => {
 
 export const getUserProfile = async () => {
   try {
-    const response = await api.get('/auth/profile');
-    return response.data.data.user;
+    const response = await api.get('/auth/me');
+    return response.data.user || response.data.data?.user;
   } catch (error) {
     throw new Error(error.response?.data?.message || 'Failed to get profile');
   }

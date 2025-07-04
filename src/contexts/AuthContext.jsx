@@ -15,7 +15,7 @@ export const useAuth = () => {
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
-  const [token, setToken] = useState(localStorage.getItem('token'));
+  const [token, setToken] = useState(localStorage.getItem('accessToken'));
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -24,14 +24,14 @@ export const AuthProvider = ({ children }) => {
         try {
           const decoded = jwtDecode(token);
           if (decoded.exp * 1000 > Date.now()) {
-            const userData = await authService.getUserProfile(token);
+            const userData = await authService.getUserProfile();
             setUser(userData);
           } else {
-            localStorage.removeItem('token');
+            localStorage.removeItem('accessToken');
             setToken(null);
           }
         } catch (error) {
-          localStorage.removeItem('token');
+          localStorage.removeItem('accessToken');
           setToken(null);
         }
       }
@@ -46,7 +46,7 @@ export const AuthProvider = ({ children }) => {
       const response = await authService.login(email, password);
       const { token: newToken, user: userData } = response;
       
-      localStorage.setItem('token', newToken);
+      localStorage.setItem('accessToken', newToken);
       setToken(newToken);
       setUser(userData);
       
@@ -63,7 +63,7 @@ export const AuthProvider = ({ children }) => {
       const response = await authService.signup(name, email, password);
       const { token: newToken, user: userData } = response;
       
-      localStorage.setItem('token', newToken);
+      localStorage.setItem('accessToken', newToken);
       setToken(newToken);
       setUser(userData);
       
@@ -76,7 +76,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = () => {
-    localStorage.removeItem('token');
+    localStorage.removeItem('accessToken');
     setToken(null);
     setUser(null);
     toast.success('Logged out successfully');
