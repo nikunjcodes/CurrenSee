@@ -41,7 +41,6 @@ export const geminiService = {
         console.error('JSON parsing error:', parseError);
       }
 
-      // Fallback if JSON parsing fails
       return {
         title: `Fun Fact: ${fromCurrency} & ${toCurrency}`,
         fact: text || `Interesting relationship between ${fromCurrency} and ${toCurrency} currencies`,

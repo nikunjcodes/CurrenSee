@@ -29,19 +29,15 @@ const currencies = [
 
 const seedCurrencies = async () => {
   try {
-    // Connect to MongoDB
     await mongoose.connect(process.env.MONGO_URI);
     console.log('Connected to MongoDB');
 
-    // Clear existing currencies
     await Currency.deleteMany({});
     console.log('Cleared existing currencies');
 
-    // Insert new currencies
     const result = await Currency.insertMany(currencies);
     console.log(`Inserted ${result.length} currencies`);
 
-    // Display inserted currencies
     console.log('\nInserted currencies:');
     result.forEach(currency => {
       console.log(`${currency.code} - ${currency.name} (${currency.symbol})`);

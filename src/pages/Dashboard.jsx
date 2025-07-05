@@ -93,54 +93,13 @@ const Dashboard = () => {
     }
   }
 
-  const portfolioData = calculatePortfolioValue()
-  const profitData = calculateTodaysProfit()
-
-  const quickStats = [
-    {
-      label: "Portfolio Value",
-      value: portfolioData.value,
-      change: portfolioData.change,
-      icon: DollarSign,
-      color: "text-green-600",
-      bgColor: "bg-green-100 dark:bg-green-900",
-      trend: "up",
-    },
-    {
-      label: "Active Currencies",
-      value: supportedCurrencies.length.toString(),
-      change: "+2",
-      icon: Globe,
-      color: "text-blue-600",
-      bgColor: "bg-blue-100 dark:bg-blue-900",
-      trend: "up",
-    },
-    {
-      label: "Today's Profit",
-      value: profitData.value,
-      change: profitData.change,
-      icon: TrendingUp,
-      color: "text-purple-600",
-      bgColor: "bg-purple-100 dark:bg-purple-900",
-      trend: "up",
-    },
-    {
-      label: "Alerts Triggered",
-      value: "3",
-      change: "New",
-      icon: AlertTriangle,
-      color: "text-orange-600",
-      bgColor: "bg-orange-100 dark:bg-orange-900",
-      trend: "neutral",
-    },
-  ]
 
   const quickActions = [
     {
       title: "Currency Converter",
       description: "Convert between currencies with real-time rates",
       icon: Calculator,
-      gradient: "from-blue-500 to-purple-500",
+      color: "bg-blue-500",
       action: "Convert Now",
       link: "/converter",
     },
@@ -148,7 +107,7 @@ const Dashboard = () => {
       title: "Market Analysis",
       description: "View detailed charts and market insights",
       icon: BarChart3,
-      gradient: "from-purple-500 to-pink-500",
+      color: "bg-purple-500",
       action: "Analyze Markets",
       link: "/market-analysis",
     },
@@ -156,7 +115,7 @@ const Dashboard = () => {
       title: "Travel Planner",
       description: "Plan your international trip budget",
       icon: PlaneTakeoff,
-      gradient: "from-green-500 to-blue-500",
+      color: "bg-green-500",
       action: "Plan Trip",
       link: "/travel-planner",
     },
@@ -164,7 +123,7 @@ const Dashboard = () => {
       title: "AI Predictions",
       description: "Get AI-powered currency forecasts",
       icon: Target,
-      gradient: "from-orange-500 to-red-500",
+      color: "bg-orange-500",
       action: "View Predictions",
       link: "/ai-prediction",
     },
@@ -222,7 +181,7 @@ const Dashboard = () => {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center animate-pulse">
+          <div className="w-16 h-16 mx-auto mb-4 bg-blue-500 rounded-full flex items-center justify-center animate-pulse">
             <RefreshCw className="w-8 h-8 text-white animate-spin" />
           </div>
           <p className={`${theme === "dark" ? "text-gray-300" : "text-gray-600"}`}>Loading your dashboard...</p>
@@ -259,9 +218,23 @@ const Dashboard = () => {
         >
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
             <div className="mb-4 lg:mb-0">
-              <h1 className={`text-3xl lg:text-4xl font-bold ${theme === "dark" ? "text-white" : "text-gray-900"}`}>
-                Welcome back, {user?.name || 'User'}! 👋
-              </h1>
+              {/* Logo */}
+              <div className="flex items-center mb-4">
+                <div className="w-12 h-12 bg-blue-500 rounded-xl flex items-center justify-center mr-4">
+                  <DollarSign className="w-7 h-7 text-white" />
+                </div>
+                <div>
+                  <h1 className={`text-3xl lg:text-4xl font-bold ${theme === "dark" ? "text-white" : "text-gray-900"}`}>
+                    CurrenSee
+                  </h1>
+                  <p className={`text-sm ${theme === "dark" ? "text-gray-400" : "text-gray-500"}`}>
+                    Currency Exchange Dashboard
+                  </p>
+                </div>
+              </div>
+              <h2 className={`text-2xl lg:text-3xl font-semibold ${theme === "dark" ? "text-white" : "text-gray-900"}`}>
+                Welcome back, {user?.name || 'User'}!
+              </h2>
               <p className={`mt-2 text-lg ${theme === "dark" ? "text-gray-300" : "text-gray-600"}`}>
                 Here's your currency portfolio overview
               </p>
@@ -284,42 +257,6 @@ const Dashboard = () => {
           </div>
         </motion.div>
 
-        {/* Quick Stats */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.2 }}
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8"
-        >
-          {quickStats.map((stat, index) => (
-            <Card key={index} hover padding="lg" className="group">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className={`text-sm font-medium ${theme === "dark" ? "text-gray-400" : "text-gray-500"}`}>
-                    {stat.label}
-                  </p>
-                  <p className={`text-2xl font-bold mt-1 ${theme === "dark" ? "text-white" : "text-gray-900"}`}>
-                    {stat.value}
-                  </p>
-                  <div
-                    className={`flex items-center mt-2 text-sm ${
-                      stat.trend === "up" ? "text-green-600" : stat.trend === "down" ? "text-red-600" : "text-gray-600"
-                    }`}
-                  >
-                    {stat.trend === "up" && <TrendingUp className="w-4 h-4 mr-1" />}
-                    {stat.trend === "down" && <TrendingDown className="w-4 h-4 mr-1" />}
-                    <span>{stat.change}</span>
-                  </div>
-                </div>
-                <div
-                  className={`p-3 rounded-xl ${stat.bgColor} group-hover:scale-110 transition-transform duration-300`}
-                >
-                  <stat.icon className={`w-6 h-6 ${stat.color}`} />
-                </div>
-              </div>
-            </Card>
-          ))}
-        </motion.div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Quick Actions */}
@@ -336,7 +273,7 @@ const Dashboard = () => {
               {quickActions.map((action, index) => (
                 <Card key={index} hover padding="lg" className="group cursor-pointer" onClick={() => navigate(action.link)}>
                   <div
-                    className={`w-12 h-12 bg-gradient-to-r ${action.gradient} rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300`}
+                    className={`w-12 h-12 ${action.color} rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300`}
                   >
                     <action.icon className="w-6 h-6 text-white" />
                   </div>
@@ -375,7 +312,7 @@ const Dashboard = () => {
                       className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg"
                     >
                       <div className="flex items-center space-x-3">
-                        <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
+                        <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
                           <span className="text-white text-xs font-bold">{currency}</span>
                         </div>
                         <span className={`font-medium ${theme === "dark" ? "text-white" : "text-gray-900"}`}>

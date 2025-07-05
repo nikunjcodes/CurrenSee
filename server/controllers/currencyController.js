@@ -3,7 +3,8 @@ import Currency from '../models/Currency.js';
 
 export const testAPI = async (req, res) => {
   try {
-    // Test with a simple currency pair
+
+
     const data = await getExchangeRate('USD', 'EUR');
     
     if (data['Error Message']) {
@@ -54,7 +55,6 @@ export const fetchExchangeRate = async (req, res) => {
     
     const data = await getExchangeRate(from, to);
     
-    // Check for API errors
     if (data['Error Message']) {
       return res.status(502).json({ error: data['Error Message'] });
     }
@@ -82,7 +82,6 @@ export const fetchHistoricalRates = async (req, res) => {
     
     const data = await getHistoricalRates(from, to);
     
-    // Check for API errors
     if (data['Error Message']) {
       return res.status(502).json({ error: data['Error Message'] });
     }
@@ -93,7 +92,6 @@ export const fetchHistoricalRates = async (req, res) => {
     
     const series = data['Time Series FX (Daily)'];
     if (!series) {
-      // If no historical data, return a more helpful error
       return res.status(502).json({ 
         error: 'No historical data available for this currency pair. This might be due to API limitations or invalid currency codes.' 
       });
@@ -110,12 +108,9 @@ export const getSupportedCurrencies = async (req, res) => {
   try {
     const currencies = await Currency.find({});
     if (!currencies || currencies.length === 0) {
-      // No currencies found, return empty array
       return res.json([]);
     }
-    // Map fields to match frontend expectations
     const mapped = currencies.map(c => {
-      // Defensive: fallback to _doc if direct access fails
       const doc = c._doc || c;
       return {
         code: doc["currency code"] || doc.code || "",

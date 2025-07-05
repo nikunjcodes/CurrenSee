@@ -38,7 +38,7 @@ const Navbar = () => {
               <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
             </div>
             <div className="flex flex-col">
-              <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+              <span className="text-xl font-bold bg-gradient-to-r from-blue-600 bg-clip-text text-transparent">
                 CurrenSee
               </span>
               <span className="text-xs text-gray-500 dark:text-gray-400 hidden sm:block">

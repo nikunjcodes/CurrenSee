@@ -4,7 +4,6 @@ import { AnimatePresence } from "framer-motion"
 import { useAuth } from "./contexts/AuthContext.jsx"
 import { useTheme } from "./contexts/ThemeContext.jsx"
 
-// Components
 import Navbar from "./components/Navbar.jsx"
 import LandingPage from "./pages/LandingPage.jsx"
 import LoginPage from "./pages/LoginPage.jsx"

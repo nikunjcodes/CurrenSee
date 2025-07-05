@@ -5,7 +5,6 @@ dotenv.config();
 const API_KEY = process.env.ALPHA_VANTAGE_API_KEY;
 const BASE_URL = 'https://www.alphavantage.co/query';
 
-// Validate API key
 if (!API_KEY) {
   console.error('ALPHA_VANTAGE_API_KEY is not set in environment variables');
   console.error('Please add your Alpha Vantage API key to the .env file');
@@ -22,7 +21,6 @@ export const getExchangeRate = async (from, to) => {
     
     const { data } = await axios.get(url);
     
-    // Log API response for debugging
     if (data.Note || data['Error Message']) {
       console.warn('Alpha Vantage API warning/error:', data);
     }
@@ -45,7 +43,6 @@ export const getHistoricalRates = async (from, to) => {
     
     const { data } = await axios.get(url);
     
-    // Log API response for debugging
     if (data.Note || data['Error Message']) {
       console.warn('Alpha Vantage API warning/error:', data);
     }

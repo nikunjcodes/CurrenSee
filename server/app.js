@@ -9,17 +9,14 @@ import geminiRoutes from './routes/geminiRoutes.js';
 dotenv.config();
 const app = express();
 
-// Middleware
 app.use(cors({
-    origin: 'http://localhost:5173', // Adjust this to your frontend URL
+    origin: 'http://localhost:5173', 
     credentials: true,
 }));
 app.use(express.json());
 
-// Connect DB
 connectDB();
 
-// Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/currency', currencyRoutes);
 app.use('/api/gemini', geminiRoutes);

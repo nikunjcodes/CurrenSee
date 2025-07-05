@@ -21,7 +21,6 @@ const OfflineBanner = () => {
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
-    // Show banner if initially offline
     if (!navigator.onLine) {
       setShowBanner(true);
     }
