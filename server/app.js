@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import connectDB from './config/db.js';
 import authRoutes from './routes/authRoutes.js';
 import currencyRoutes from './routes/currencyRoutes.js';
+import geminiRoutes from './routes/geminiRoutes.js';
 
 dotenv.config();
 const app = express();
@@ -21,5 +22,6 @@ connectDB();
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/currency', currencyRoutes);
+app.use('/api/gemini', geminiRoutes);
 
 export default app;
