@@ -166,7 +166,7 @@ const Dashboard = () => {
       icon: Target,
       gradient: "from-orange-500 to-red-500",
       action: "View Predictions",
-      link: "/ai-predictions",
+      link: "/ai-prediction",
     },
   ]
 

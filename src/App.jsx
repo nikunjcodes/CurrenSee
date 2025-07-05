@@ -15,6 +15,7 @@ import ProtectedRoute from "./components/ProtectedRoute.jsx"
 import OfflineBanner from "./components/OfflineBanner.jsx"
 import CurrencyConverter from "./pages/CurrencyConverter.jsx"
 import MarketAnalysis from "./pages/MarketAnalysis.jsx"
+import AIPrediction from "./pages/AIPrediction.jsx"
 
 function App() {
   const { loading } = useAuth()
@@ -61,6 +62,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <MarketAnalysis />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/ai-prediction"
+            element={
+              <ProtectedRoute>
+                <AIPrediction />
               </ProtectedRoute>
             }
           />
