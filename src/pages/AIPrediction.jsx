@@ -11,17 +11,60 @@ import {
   RefreshCw,
   AlertTriangle,
   Target,
-  ArrowRight
+  ArrowRight,
+  Zap,
+  Activity,
+  TrendingUpIcon
 } from "lucide-react";
 import { useTheme } from "../contexts/ThemeContext.jsx";
 import { apiService } from "../services/api.js";
 import { SimpleLinearRegression } from "ml-regression";
+import { PolynomialRegression } from "ml-regression-polynomial";
+import { ExponentialRegression } from "ml-regression-exponential";
+import { PowerRegression } from "ml-regression-power";
 import Card from "../components/ui/Card.jsx";
 import Button from "../components/ui/Button.jsx";
 
 const PERIODS = [7, 30, 90];
 const DEFAULT_FROM = "USD";
 const DEFAULT_TO = "EUR";
+
+// Calculate moving averages
+function calculateMovingAverages(data, periods = [5, 10, 20]) {
+  const movingAverages = {};
+  
+  periods.forEach(period => {
+    if (data.length >= period) {
+      const ma = [];
+      for (let i = period - 1; i < data.length; i++) {
+        const sum = data.slice(i - period + 1, i + 1).reduce((acc, d) => acc + d.close, 0);
+        ma.push(sum / period);
+      }
+      movingAverages[`MA${period}`] = ma;
+    }
+  });
+  
+  return movingAverages;
+}
+
+// Calculate R-squared (coefficient of determination)
+function calculateRSquared(actual, predicted) {
+  const mean = actual.reduce((sum, val) => sum + val, 0) / actual.length;
+  const ssRes = actual.reduce((sum, val, i) => sum + Math.pow(val - predicted[i], 2), 0);
+  const ssTot = actual.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0);
+  return 1 - (ssRes / ssTot);
+}
+
+// Calculate volatility
+function calculateVolatility(data) {
+  const returns = [];
+  for (let i = 1; i < data.length; i++) {
+    returns.push((data[i].close - data[i-1].close) / data[i-1].close);
+  }
+  const mean = returns.reduce((sum, val) => sum + val, 0) / returns.length;
+  const variance = returns.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / returns.length;
+  return Math.sqrt(variance) * Math.sqrt(252); // Annualized volatility
+}
 
 function extractClosePrices(timeSeries, days) {
   if (!timeSeries || typeof timeSeries !== 'object') {
@@ -51,8 +94,8 @@ function extractClosePrices(timeSeries, days) {
   }).reverse(); // oldest to newest
 }
 
-function runRegression(data) {
-  if (!Array.isArray(data) || data.length < 2) {
+function runAdvancedAnalysis(data) {
+  if (!Array.isArray(data) || data.length < 5) {
     return null;
   }
   
@@ -65,43 +108,171 @@ function runRegression(data) {
       throw new Error('Invalid data points detected');
     }
     
-    const regression = new SimpleLinearRegression(x, y);
-    const nextDay = x.length;
-    const predicted = regression.predict(nextDay);
+    const models = [];
+    
+    // Linear Regression
+    try {
+      const linearRegression = new SimpleLinearRegression(x, y);
+      const linearPredicted = linearRegression.predict(x.length);
+      const linearRSquared = calculateRSquared(y, x.map(xi => linearRegression.predict(xi)));
+      
+      if (isFinite(linearPredicted) && isFinite(linearRSquared)) {
+        models.push({
+          name: 'Linear',
+          rSquared: linearRSquared,
+          predicted: linearPredicted,
+          slope: linearRegression.slope || 0
+        });
+      }
+    } catch (error) {
+      console.warn('Linear regression failed:', error);
+    }
+    
+    // Polynomial Regression (degree 2)
+    try {
+      const polynomialRegression = new PolynomialRegression(x, y, 2);
+      const polyPredicted = polynomialRegression.predict(x.length);
+      const polyRSquared = calculateRSquared(y, x.map(xi => polynomialRegression.predict(xi)));
+      
+      if (isFinite(polyPredicted) && isFinite(polyRSquared)) {
+        models.push({
+          name: 'Polynomial',
+          rSquared: polyRSquared,
+          predicted: polyPredicted,
+          slope: polynomialRegression.slope || 0
+        });
+      }
+    } catch (error) {
+      console.warn('Polynomial regression failed:', error);
+    }
+    
+    // Exponential Regression
+    try {
+      const exponentialRegression = new ExponentialRegression(x, y);
+      const expPredicted = exponentialRegression.predict(x.length);
+      const expRSquared = calculateRSquared(y, x.map(xi => exponentialRegression.predict(xi)));
+      
+      if (isFinite(expPredicted) && isFinite(expRSquared)) {
+        models.push({
+          name: 'Exponential',
+          rSquared: expRSquared,
+          predicted: expPredicted,
+          slope: exponentialRegression.slope || 0
+        });
+      }
+    } catch (error) {
+      console.warn('Exponential regression failed:', error);
+    }
+    
+    // Power Regression
+    try {
+      const powerRegression = new PowerRegression(x, y);
+      const powerPredicted = powerRegression.predict(x.length);
+      const powerRSquared = calculateRSquared(y, x.map(xi => powerRegression.predict(xi)));
+      
+      if (isFinite(powerPredicted) && isFinite(powerRSquared)) {
+        models.push({
+          name: 'Power',
+          rSquared: powerRSquared,
+          predicted: powerPredicted,
+          slope: powerRegression.slope || 0
+        });
+      }
+    } catch (error) {
+      console.warn('Power regression failed:', error);
+    }
+    
+    // If no models worked, return null
+    if (models.length === 0) {
+      throw new Error('All regression models failed');
+    }
+    
+    // Moving Averages
+    const movingAverages = calculateMovingAverages(data);
+    
+    // Volatility
+    const volatility = calculateVolatility(data);
+    
+    // Find best model based on R-squared
+    const bestModel = models.reduce((best, current) => 
+      current.rSquared > best.rSquared ? current : best
+    );
     
     return {
-      regression,
-      predicted,
-      slope: regression.slope,
-      intercept: regression.intercept
+      models,
+      bestModel,
+      movingAverages,
+      volatility,
+      currentPrice: y[y.length - 1],
+      priceChange: y[y.length - 1] - y[0],
+      priceChangePercent: ((y[y.length - 1] - y[0]) / y[0]) * 100
     };
   } catch (error) {
-    console.error('Regression error:', error);
+    console.error('Advanced analysis error:', error);
     return null;
   }
 }
 
-function getAdvice(slope) {
-  if (slope > 0.01) return { 
-    text: "Strong upward trend detected. Consider buying or holding.", 
-    color: "text-green-600",
-    bgColor: "bg-green-100 dark:bg-green-900",
-    icon: TrendingUp,
-    action: "BUY"
-  };
-  if (slope < -0.01) return { 
-    text: "Strong downward trend detected. Consider selling or holding.", 
-    color: "text-red-600",
-    bgColor: "bg-red-100 dark:bg-red-900",
-    icon: TrendingDown,
-    action: "SELL"
-  };
-  return { 
-    text: "Stable trend. Hold or wait for more data.", 
-    color: "text-gray-600",
-    bgColor: "bg-gray-100 dark:bg-gray-800",
-    icon: BarChart3,
-    action: "HOLD"
+function getAdvancedAdvice(analysis) {
+  if (!analysis || !analysis.bestModel) return null;
+  
+  const { bestModel, volatility, priceChangePercent } = analysis;
+  
+  // Ensure we have valid values
+  const slope = bestModel.slope || 0;
+  const vol = volatility || 0;
+  const priceChange = priceChangePercent || 0;
+  
+  // Determine trend strength
+  let trendStrength = 'weak';
+  if (Math.abs(slope) > 0.01) trendStrength = 'strong';
+  else if (Math.abs(slope) > 0.005) trendStrength = 'moderate';
+  
+  // Determine volatility level
+  let volatilityLevel = 'low';
+  if (vol > 0.3) volatilityLevel = 'high';
+  else if (vol > 0.15) volatilityLevel = 'medium';
+  
+  // Generate comprehensive advice
+  let action = 'HOLD';
+  let confidence = 'medium';
+  let reasoning = [];
+  
+  if (slope > 0.01 && priceChange > 2) {
+    action = 'BUY';
+    confidence = 'high';
+    reasoning.push('Strong upward trend detected');
+    reasoning.push('Positive price momentum');
+  } else if (slope < -0.01 && priceChange < -2) {
+    action = 'SELL';
+    confidence = 'high';
+    reasoning.push('Strong downward trend detected');
+    reasoning.push('Negative price momentum');
+  } else if (Math.abs(slope) < 0.005) {
+    action = 'HOLD';
+    confidence = 'high';
+    reasoning.push('Stable trend with low volatility');
+  } else {
+    action = 'HOLD';
+    confidence = 'medium';
+    reasoning.push('Mixed signals - wait for clearer trend');
+  }
+  
+  if (volatilityLevel === 'high') {
+    reasoning.push('High volatility - consider risk management');
+  }
+  
+  return {
+    action,
+    confidence,
+    reasoning,
+    trendStrength,
+    volatilityLevel,
+    modelAccuracy: bestModel.rSquared ? (bestModel.rSquared * 100).toFixed(1) : 'N/A',
+    color: action === 'BUY' ? 'text-green-600' : action === 'SELL' ? 'text-red-600' : 'text-gray-600',
+    bgColor: action === 'BUY' ? 'bg-green-100 dark:bg-green-900' : 
+             action === 'SELL' ? 'bg-red-100 dark:bg-red-900' : 'bg-gray-100 dark:bg-gray-800',
+    icon: action === 'BUY' ? TrendingUp : action === 'SELL' ? TrendingDown : BarChart3
   };
 }
 
@@ -135,10 +306,10 @@ const AIPrediction = () => {
       const periodResults = {};
       for (const period of PERIODS) {
         const closes = extractClosePrices(series, period);
-        if (closes.length < 2) {
-          throw new Error(`Insufficient data for ${period}-day analysis. Need at least 2 data points.`);
+        if (closes.length < 5) {
+          throw new Error(`Insufficient data for ${period}-day analysis. Need at least 5 data points for advanced algorithms.`);
         }
-        const regression = runRegression(closes);
+        const regression = runAdvancedAnalysis(closes);
         periodResults[period] = { closes, regression };
       }
       setResults(periodResults);
@@ -177,11 +348,31 @@ const AIPrediction = () => {
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
             <div className="mb-4 lg:mb-0">
               <h1 className={`text-3xl lg:text-4xl font-bold ${theme === "dark" ? "text-white" : "text-gray-900"}`}>
-                AI Currency Prediction 🤖
+                Advanced AI Currency Analysis 🤖
               </h1>
               <p className={`mt-2 text-lg ${theme === "dark" ? "text-gray-300" : "text-gray-600"}`}>
-                Machine learning-powered trend analysis and trading advice
+                Multi-algorithm machine learning analysis with polynomial, exponential, and power regression
               </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 text-xs rounded-full">
+                  Linear Regression
+                </span>
+                <span className="px-2 py-1 bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200 text-xs rounded-full">
+                  Polynomial Regression
+                </span>
+                <span className="px-2 py-1 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 text-xs rounded-full">
+                  Exponential Regression
+                </span>
+                <span className="px-2 py-1 bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200 text-xs rounded-full">
+                  Power Regression
+                </span>
+                <span className="px-2 py-1 bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 text-xs rounded-full">
+                  Moving Averages
+                </span>
+                <span className="px-2 py-1 bg-indigo-100 dark:bg-indigo-900 text-indigo-800 dark:text-indigo-200 text-xs rounded-full">
+                  Volatility Analysis
+                </span>
+              </div>
             </div>
           </div>
         </motion.div>
@@ -296,7 +487,7 @@ const AIPrediction = () => {
               const res = results[period];
               if (!res) return null;
               const { closes, regression } = res;
-              const advice = regression ? getAdvice(regression.slope) : null;
+              const advice = regression ? getAdvancedAdvice(regression) : null;
               
               return (
                 <Card key={period} padding="lg" hover>
@@ -318,28 +509,88 @@ const AIPrediction = () => {
 
                   {/* Prediction Results */}
                   {regression && (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                      <div className="text-center p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                        <div className={`text-2xl font-bold ${theme === "dark" ? "text-white" : "text-gray-900"}`}>
-                          {regression.predicted.toFixed(4)}
+                    <div className="space-y-6">
+                      {/* Best Model Prediction */}
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div className="text-center p-4 bg-gradient-to-r from-blue-500 to-purple-500 rounded-lg text-white">
+                          <div className="text-2xl font-bold">
+                            {regression.bestModel?.predicted ? regression.bestModel.predicted.toFixed(4) : 'N/A'}
+                          </div>
+                          <div className="text-sm opacity-90">Best Model Prediction</div>
+                          <div className="text-xs opacity-75 mt-1">
+                            {regression.bestModel?.name || 'Unknown'} Model
+                          </div>
                         </div>
-                        <div className="text-sm text-gray-500">Predicted Next Day</div>
-                      </div>
-                      <div className="text-center p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                        <div className={`text-2xl font-bold ${advice.color}`}>
-                          {regression.slope > 0 ? '+' : ''}{regression.slope.toFixed(4)}
+                        <div className="text-center p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                          <div className={`text-2xl font-bold ${advice.color}`}>
+                            {regression.bestModel?.slope ? (regression.bestModel.slope > 0 ? '+' : '') + regression.bestModel.slope.toFixed(4) : 'N/A'}
+                          </div>
+                          <div className="text-sm text-gray-500">Trend Slope</div>
                         </div>
-                        <div className="text-sm text-gray-500">Trend Slope</div>
-                      </div>
-                      <div className="text-center p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                        <div className="flex items-center justify-center space-x-2">
-                          <advice.icon className={`w-6 h-6 ${advice.color}`} />
-                          <span className={`font-medium ${advice.color}`}>
-                            {advice.action}
-                          </span>
+                        <div className="text-center p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                          <div className="text-2xl font-bold text-blue-600">
+                            {regression.volatility ? regression.volatility.toFixed(2) : 'N/A'}%
+                          </div>
+                          <div className="text-sm text-gray-500">Volatility</div>
                         </div>
-                        <div className="text-sm text-gray-500">Recommendation</div>
+                        <div className="text-center p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                          <div className="text-2xl font-bold text-green-600">
+                            {regression.priceChangePercent ? (regression.priceChangePercent > 0 ? '+' : '') + regression.priceChangePercent.toFixed(2) : 'N/A'}%
+                          </div>
+                          <div className="text-sm text-gray-500">Price Change</div>
+                        </div>
                       </div>
+
+                      {/* Model Comparison */}
+                      <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+                        <h4 className={`font-semibold mb-3 ${theme === "dark" ? "text-white" : "text-gray-900"}`}>
+                          Model Performance Comparison
+                        </h4>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                          {regression.models.map((model, index) => (
+                            <div key={model.name} className={`p-3 rounded-lg ${
+                              model.name === regression.bestModel?.name 
+                                ? 'bg-blue-100 dark:bg-blue-900 border-2 border-blue-300 dark:border-blue-600' 
+                                : 'bg-white dark:bg-gray-600'
+                            }`}>
+                              <div className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                {model.name}
+                              </div>
+                              <div className="text-lg font-bold text-blue-600">
+                                {model.rSquared ? (model.rSquared * 100).toFixed(1) : 'N/A'}%
+                              </div>
+                              <div className="text-xs text-gray-500">Accuracy</div>
+                              <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                                Pred: {model.predicted ? model.predicted.toFixed(4) : 'N/A'}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Moving Averages */}
+                      {Object.keys(regression.movingAverages).length > 0 && (
+                        <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+                          <h4 className={`font-semibold mb-3 ${theme === "dark" ? "text-white" : "text-gray-900"}`}>
+                            Moving Averages
+                          </h4>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            {Object.entries(regression.movingAverages).map(([period, values]) => (
+                              <div key={period} className="p-3 bg-white dark:bg-gray-600 rounded-lg">
+                                <div className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                  {period}
+                                </div>
+                                <div className="text-lg font-bold text-gray-900 dark:text-white">
+                                  {values && values.length > 0 ? values[values.length - 1].toFixed(4) : 'N/A'}
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                  Latest Value
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -378,25 +629,98 @@ const AIPrediction = () => {
 
                   {/* Advice */}
                   {advice && (
-                    <div className={`p-4 rounded-lg ${advice.bgColor}`}>
-                      <div className="flex items-start space-x-3">
-                        <advice.icon className={`w-5 h-5 mt-0.5 ${advice.color}`} />
-                        <div>
-                          <h4 className={`font-medium ${advice.color}`}>
-                            AI Recommendation
-                          </h4>
-                          <p className={`text-sm mt-1 ${theme === "dark" ? "text-gray-300" : "text-gray-600"}`}>
-                            {advice.text}
-                          </p>
+                    <div className={`p-6 rounded-lg ${advice.bgColor} border-l-4 ${advice.color.replace('text-', 'border-')}`}>
+                      <div className="flex items-start space-x-4">
+                        <div className="flex-shrink-0">
+                          <advice.icon className={`w-8 h-8 ${advice.color}`} />
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-3 mb-3">
+                            <h4 className={`text-lg font-bold ${advice.color}`}>
+                              AI Recommendation: {advice.action}
+                            </h4>
+                            <div className={`px-2 py-1 rounded-full text-xs font-medium ${
+                              advice.confidence === 'high' 
+                                ? 'bg-green-200 text-green-800 dark:bg-green-800 dark:text-green-200'
+                                : 'bg-yellow-200 text-yellow-800 dark:bg-yellow-800 dark:text-yellow-200'
+                            }`}>
+                              {advice.confidence.toUpperCase()} Confidence
+                            </div>
+                          </div>
+                          
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                            <div>
+                              <h5 className={`font-semibold mb-2 ${theme === "dark" ? "text-white" : "text-gray-900"}`}>
+                                Analysis Summary
+                              </h5>
+                              <ul className="space-y-1">
+                                {advice.reasoning.map((reason, index) => (
+                                  <li key={index} className={`text-sm flex items-center space-x-2 ${theme === "dark" ? "text-gray-300" : "text-gray-600"}`}>
+                                    <div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
+                                    <span>{reason}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                            
+                            <div>
+                              <h5 className={`font-semibold mb-2 ${theme === "dark" ? "text-white" : "text-gray-900"}`}>
+                                Technical Indicators
+                              </h5>
+                              <div className="space-y-2">
+                                <div className="flex justify-between">
+                                  <span className={`text-sm ${theme === "dark" ? "text-gray-300" : "text-gray-600"}`}>Trend Strength:</span>
+                                  <span className={`text-sm font-medium capitalize ${advice.trendStrength === 'strong' ? 'text-green-600' : advice.trendStrength === 'moderate' ? 'text-yellow-600' : 'text-gray-600'}`}>
+                                    {advice.trendStrength}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className={`text-sm ${theme === "dark" ? "text-gray-300" : "text-gray-600"}`}>Volatility:</span>
+                                  <span className={`text-sm font-medium capitalize ${advice.volatilityLevel === 'high' ? 'text-red-600' : advice.volatilityLevel === 'medium' ? 'text-yellow-600' : 'text-green-600'}`}>
+                                    {advice.volatilityLevel}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className={`text-sm ${theme === "dark" ? "text-gray-300" : "text-gray-600"}`}>Model Accuracy:</span>
+                                  <span className="text-sm font-medium text-blue-600">{advice.modelAccuracy}%</span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <div className={`p-3 rounded-lg ${theme === "dark" ? "bg-gray-800" : "bg-white"} border border-gray-200 dark:border-gray-600`}>
+                            <p className={`text-sm ${theme === "dark" ? "text-gray-300" : "text-gray-600"}`}>
+                              <strong>💡 Trading Tip:</strong> {advice.action === 'BUY' 
+                                ? 'Consider entering a long position with proper stop-loss management.' 
+                                : advice.action === 'SELL' 
+                                ? 'Consider reducing exposure or entering a short position with tight risk controls.'
+                                : 'Monitor the market for clearer signals before making significant position changes.'
+                              }
+                            </p>
+                          </div>
                         </div>
                       </div>
                     </div>
                   )}
 
                   {!regression && (
-                    <div className="text-center py-4 text-gray-500">
-                      <Target className="w-8 h-8 mx-auto mb-2 text-gray-400" />
-                      <p>Not enough data for prediction</p>
+                    <div className="text-center py-8 text-gray-500">
+                      <Target className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+                      <h3 className={`text-lg font-semibold mb-2 ${theme === "dark" ? "text-white" : "text-gray-900"}`}>
+                        Analysis Unavailable
+                      </h3>
+                      <p className="text-sm mb-4">
+                        Unable to perform advanced analysis on this data. This could be due to:
+                      </p>
+                      <ul className="text-xs space-y-1 text-left max-w-md mx-auto">
+                        <li>• Insufficient historical data points</li>
+                        <li>• Invalid or missing price data</li>
+                        <li>• Data format issues</li>
+                        <li>• Regression model failures</li>
+                      </ul>
+                      <p className="text-xs mt-4 text-gray-400">
+                        Try selecting a different currency pair or time period.
+                      </p>
                     </div>
                   )}
                 </Card>
@@ -419,13 +743,16 @@ const AIPrediction = () => {
                   <Brain className="w-10 h-10 text-white" />
                 </div>
                 <h3 className={`text-xl font-semibold mb-3 ${theme === "dark" ? "text-white" : "text-gray-900"}`}>
-                  Ready to Analyze?
+                  Advanced AI Analysis Ready
                 </h3>
                 <p className={`text-sm mb-6 ${theme === "dark" ? "text-gray-300" : "text-gray-600"}`}>
-                  Select a currency pair above and click "Analyze with AI" to get machine learning-powered predictions and trading advice.
+                  Select a currency pair and click "Analyze with AI" to get comprehensive analysis using multiple machine learning algorithms including linear, polynomial, exponential, and power regression models.
                 </p>
-                <div className="text-xs text-gray-500">
-                  <p>💡 Popular pairs: USD/EUR, EUR/GBP, USD/JPY</p>
+                <div className="text-xs text-gray-500 space-y-1">
+                  <p>🤖 Multi-algorithm analysis</p>
+                  <p>📊 Model performance comparison</p>
+                  <p>📈 Moving averages & volatility</p>
+                  <p>💡 Confidence-based recommendations</p>
                 </div>
               </div>
             </Card>
