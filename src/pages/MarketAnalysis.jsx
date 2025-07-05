@@ -1,386 +1,181 @@
-import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
-import { TrendingUp, TrendingDown, BarChart3, Activity, AlertCircle, CheckCircle } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import Card from '../components/ui/Card.jsx';
+import Button from '../components/ui/Button.jsx';
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { useTheme } from '../contexts/ThemeContext.jsx';
+import { motion } from 'framer-motion';
+import { BarChart3, RefreshCw, Maximize2, Minimize2, CalendarClock } from 'lucide-react';
 
 const MarketAnalysis = () => {
   const { theme } = useTheme();
-  const [selectedPeriod, setSelectedPeriod] = useState('7d');
-  const [selectedPair, setSelectedPair] = useState('USD/EUR');
-  const [chartData, setChartData] = useState([]);
-  const [heatmapData, setHeatmapData] = useState([]);
-  const [newsData, setNewsData] = useState([]);
-
-  const periods = [
-    { value: '7d', label: '7 Days' },
-    { value: '30d', label: '30 Days' },
-    { value: '365d', label: '1 Year' },
-  ];
-
-  const currencyPairs = [
-    'USD/EUR', 'USD/GBP', 'USD/JPY', 'USD/CAD', 'USD/AUD',
-    'EUR/GBP', 'EUR/JPY', 'GBP/JPY', 'AUD/CAD', 'CHF/JPY'
-  ];
+  const [currencies, setCurrencies] = useState([]);
+  const [from, setFrom] = useState('INR');
+  const [to, setTo] = useState('USD');
+  const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [currenciesLoading, setCurrenciesLoading] = useState(true);
+  const [highLow, setHighLow] = useState({ high: null, low: null });
+  const [lastRefreshed, setLastRefreshed] = useState(null);
 
   useEffect(() => {
-    generateChartData();
-    generateHeatmapData();
-    generateNewsData();
-  }, [selectedPeriod, selectedPair]);
-
-  const generateChartData = () => {
-    const days = selectedPeriod === '7d' ? 7 : selectedPeriod === '30d' ? 30 : 365;
-    const baseValue = 0.8473; // USD to EUR base rate
-    
-    const data = [];
-    for (let i = days; i >= 0; i--) {
-      const date = new Date();
-      date.setDate(date.getDate() - i);
-      
-      const variation = (Math.random() - 0.5) * 0.02; // ±1% variation
-      const value = baseValue + variation;
-      
-      data.push({
-        date: date.toISOString().split('T')[0],
-        value: value,
-        displayDate: date.toLocaleDateString(),
-        change: variation > 0 ? 'up' : 'down'
+    setCurrenciesLoading(true);
+    fetch('http://localhost:3001/api/currency/supported')
+      .then(res => res.json())
+      .then(data => {
+        setCurrencies(data);
+        setCurrenciesLoading(false);
+      })
+      .catch(() => {
+        setError('Failed to load supported currencies.');
+        setCurrenciesLoading(false);
       });
+  }, []);
+
+  const fetchHistory = async () => {
+    setLoading(true);
+    setData([]);
+    setError(null);
+    setHighLow({ high: null, low: null });
+    setLastRefreshed(null);
+    try {
+      const res = await fetch(`http://localhost:3001/api/currency/history?from=${from}&to=${to}`);
+      const json = await res.json();
+      if (!res.ok) {
+        setError(json.error || 'Failed to fetch data');
+        setLoading(false);
+        return;
+      }
+      const series = json['Time Series FX (Daily)'] || {};
+      const metaData = json['Meta Data'] || {};
+      const chartData = Object.entries(series).map(([date, values]) => ({
+        date,
+        close: parseFloat(values['4. close'])
+      })).sort((a, b) => new Date(a.date) - new Date(b.date));
+      
+      let currentHigh = -Infinity;
+      let currentLow = Infinity;
+
+      chartData.forEach(item => {
+        if (item.close > currentHigh) currentHigh = item.close;
+        if (item.close < currentLow) currentLow = item.close;
+      });
+
+      setData(chartData);
+      setHighLow({ high: currentHigh, low: currentLow });
+      setLastRefreshed(metaData['5. Last Refreshed']);
+
+      if (chartData.length === 0) setError('No data to display.');
+    } catch {
+      setError('Error fetching data');
     }
-    
-    setChartData(data);
-  };
-
-  const generateHeatmapData = () => {
-    const currencies = ['USD', 'EUR', 'GBP', 'JPY', 'CAD', 'AUD', 'CHF', 'CNY'];
-    const data = currencies.map(currency => ({
-      currency,
-      strength: Math.random() * 100,
-      change: (Math.random() - 0.5) * 10,
-      volatility: Math.random() * 20 + 5
-    }));
-    
-    setHeatmapData(data);
-  };
-
-  const generateNewsData = () => {
-    const news = [
-      { 
-        currency: 'USD', 
-        sentiment: 'positive', 
-        headline: 'Federal Reserve signals stable interest rates',
-        impact: 'high',
-        time: '2 hours ago'
-      },
-      { 
-        currency: 'EUR', 
-        sentiment: 'neutral', 
-        headline: 'ECB maintains current monetary policy',
-        impact: 'medium',
-        time: '4 hours ago'
-      },
-      { 
-        currency: 'GBP', 
-        sentiment: 'negative', 
-        headline: 'UK inflation concerns persist',
-        impact: 'high',
-        time: '6 hours ago'
-      },
-      { 
-        currency: 'JPY', 
-        sentiment: 'positive', 
-        headline: 'Bank of Japan intervention supports yen',
-        impact: 'medium',
-        time: '8 hours ago'
-      },
-    ];
-    
-    setNewsData(news);
-  };
-
-  const getStrengthColor = (strength) => {
-    if (strength >= 70) return 'bg-green-500';
-    if (strength >= 40) return 'bg-yellow-500';
-    return 'bg-red-500';
-  };
-
-  const getSentimentIcon = (sentiment) => {
-    switch (sentiment) {
-      case 'positive':
-        return <CheckCircle className="w-4 h-4 text-green-500" />;
-      case 'negative':
-        return <AlertCircle className="w-4 h-4 text-red-500" />;
-      default:
-        return <Activity className="w-4 h-4 text-yellow-500" />;
-    }
-  };
-
-  const getSentimentColor = (sentiment) => {
-    switch (sentiment) {
-      case 'positive':
-        return 'text-green-500';
-      case 'negative':
-        return 'text-red-500';
-      default:
-        return 'text-yellow-500';
-    }
+    setLoading(false);
   };
 
   return (
-    <div className="min-h-screen py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.8 }}
+      className="min-h-screen py-8 bg-gray-50 dark:bg-gray-900 flex items-center justify-center"
+    >
+      <Card padding="lg" className="w-full max-w-4xl shadow-xl dark:shadow-none">
+        <motion.h2
+          initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8 }}
-          className="text-center mb-8"
+          transition={{ delay: 0.2, duration: 0.5 }}
+          className="text-3xl font-bold mb-6 text-center flex items-center justify-center space-x-3"
         >
-          <h1 className={`text-3xl font-bold mb-4 ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
-            Market Analysis
-          </h1>
-          <p className={`text-lg ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>
-            Advanced currency market insights and trend analysis
-          </p>
-        </motion.div>
-
-        {/* Controls */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.2 }}
-          className={`p-6 rounded-2xl shadow-lg mb-8 ${
-            theme === 'dark' ? 'bg-gray-800' : 'bg-white'
-          }`}
-        >
-          <div className="flex flex-wrap items-center gap-4">
-            <div className="flex-1 min-w-0">
-              <label className={`block text-sm font-medium mb-2 ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>
-                Currency Pair
-              </label>
-              <select
-                value={selectedPair}
-                onChange={(e) => setSelectedPair(e.target.value)}
-                className={`w-full p-3 rounded-lg border focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 ${
-                  theme === 'dark' 
-                    ? 'bg-gray-700 border-gray-600 text-white' 
-                    : 'bg-white border-gray-300 text-gray-900'
-                }`}
-              >
-                {currencyPairs.map((pair) => (
-                  <option key={pair} value={pair}>
-                    {pair}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="flex-1 min-w-0">
-              <label className={`block text-sm font-medium mb-2 ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>
-                Time Period
-              </label>
-              <div className="flex space-x-2">
-                {periods.map((period) => (
-                  <button
-                    key={period.value}
-                    onClick={() => setSelectedPeriod(period.value)}
-                    className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
-                      selectedPeriod === period.value
-                        ? 'bg-gradient-to-r from-primary-500 to-accent-500 text-white'
-                        : theme === 'dark' 
-                          ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' 
-                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
-                  >
-                    {period.label}
-                  </button>
-                ))}
-              </div>
-            </div>
+          <BarChart3 className="w-8 h-8 text-purple-500" />
+          <span className={`${theme === "dark" ? "text-white" : "text-gray-900"}`}>Market Analysis</span>
+        </motion.h2>
+        {error && (
+          <div className="mb-4 text-center text-red-600 font-medium p-3 bg-red-50 dark:bg-red-900 rounded-lg">{error}</div>
+        )}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+          <div>
+            <label className={`block mb-2 font-medium ${theme === "dark" ? "text-gray-300" : "text-gray-700"}`}>From Symbol</label>
+            <select value={from} onChange={e => setFrom(e.target.value)} className={`w-full p-3 rounded-lg border focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200 ${theme === "dark" ? "bg-gray-700 text-white border-gray-600" : "bg-white text-gray-900 border-gray-300"}`} disabled={currenciesLoading || loading}>
+              {currencies.map(c => (
+                <option key={c.code} value={c.code} className={`${theme === "dark" ? "bg-gray-700 text-white" : "bg-white text-gray-900"}`}>{c.code} - {c.name}</option>
+              ))}
+            </select>
           </div>
-        </motion.div>
-
-        {/* Historical Chart */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.4 }}
-          className={`p-6 rounded-2xl shadow-lg mb-8 ${
-            theme === 'dark' ? 'bg-gray-800' : 'bg-white'
-          }`}
-        >
-          <div className="flex items-center space-x-2 mb-6">
-            <BarChart3 className="w-6 h-6 text-primary-600" />
-            <h2 className={`text-xl font-semibold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
-              {selectedPair} Historical Chart
-            </h2>
+          <div>
+            <label className={`block mb-2 font-medium ${theme === "dark" ? "text-gray-300" : "text-gray-700"}`}>To Symbol</label>
+            <select value={to} onChange={e => setTo(e.target.value)} className={`w-full p-3 rounded-lg border focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200 ${theme === "dark" ? "bg-gray-700 text-white border-gray-600" : "bg-white text-gray-900 border-gray-300"}`} disabled={currenciesLoading || loading}>
+              {currencies.map(c => (
+                <option key={c.code} value={c.code} className={`${theme === "dark" ? "bg-gray-700 text-white" : "bg-white text-gray-900"}`}>{c.code} - {c.name}</option>
+              ))}
+            </select>
           </div>
+        </div>
+        <Button onClick={fetchHistory} disabled={loading || currenciesLoading || currencies.length === 0} className="w-full py-3 text-lg font-semibold bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:from-purple-600 hover:to-pink-600 transition-all duration-300 mb-6">
+          {loading ? (
+            <span className="flex items-center justify-center"><RefreshCw className="animate-spin w-5 h-5 mr-2" /> Loading Chart...</span>
+          ) : (
+            'Show Graph'
+          )}
+        </Button>
 
-          <div className="h-80">
+        {lastRefreshed && !error && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2, duration: 0.5 }}
+            className={`text-sm mb-4 text-center ${theme === "dark" ? "text-gray-400" : "text-gray-500"}`}
+          >
+            <p className="flex items-center justify-center space-x-1">
+              <CalendarClock className="w-4 h-4" />
+              <span>Last Refreshed: {new Date(lastRefreshed).toLocaleDateString()}</span>
+            </p>
+          </motion.div>
+        )}
+
+        <div className="w-full h-[400px] mb-6">
+          {data.length > 0 && !error ? (
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" stroke={theme === 'dark' ? '#374151' : '#E5E7EB'} />
-                <XAxis 
-                  dataKey="displayDate" 
-                  tick={{ fill: theme === 'dark' ? '#9CA3AF' : '#6B7280' }}
-                />
-                <YAxis 
-                  tick={{ fill: theme === 'dark' ? '#9CA3AF' : '#6B7280' }}
-                  domain={['dataMin - 0.01', 'dataMax + 0.01']}
-                />
-                <Tooltip 
-                  contentStyle={{
-                    backgroundColor: theme === 'dark' ? '#1F2937' : '#FFFFFF',
-                    border: `1px solid ${theme === 'dark' ? '#374151' : '#E5E7EB'}`,
-                    borderRadius: '8px',
-                    color: theme === 'dark' ? '#FFFFFF' : '#1F2937'
-                  }}
-                />
-                <Line 
-                  type="monotone" 
-                  dataKey="value" 
-                  stroke="#3B82F6" 
-                  strokeWidth={2}
-                  dot={{ fill: '#3B82F6', strokeWidth: 2, r: 4 }}
-                  activeDot={{ r: 6, fill: '#10B981' }}
-                />
+              <LineChart data={data} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke={`${theme === "dark" ? "#4B5563" : "#D1D5DB"}`} />
+                <XAxis dataKey="date" tick={{ fontSize: 12, fill: theme === "dark" ? "#D1D5DB" : "#4B5563" }} minTickGap={20} />
+                <YAxis domain={['auto', 'auto']} tick={{ fontSize: 12, fill: theme === "dark" ? "#D1D5DB" : "#4B5563" }} />
+                <Tooltip contentStyle={{ backgroundColor: theme === "dark" ? "#374151" : "#FFFFFF", borderColor: theme === "dark" ? "#4B5563" : "#D1D5DB", color: theme === "dark" ? "#E5E7EB" : "#1F2937" }} itemStyle={{ color: theme === "dark" ? "#E5E7EB" : "#1F2937" }} />
+                <Line type="monotone" dataKey="close" stroke="#8B5CF6" strokeWidth={2} dot={false} />
               </LineChart>
             </ResponsiveContainer>
-          </div>
-        </motion.div>
+          ) : (data.length === 0 && !loading && !error) ? (
+            <div className={`text-center py-10 rounded-lg ${theme === "dark" ? "text-gray-400 bg-gray-800" : "text-gray-600 bg-gray-100"}`}>Select currencies and click 'Show Graph' to view historical data.</div>
+          ) : (
+            <div className="text-center text-gray-500">{loading ? 'Loading...' : 'No data to display.'}</div>
+          )}
+        </div>
 
-        {/* Currency Strength Heatmap */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.6 }}
-          className={`p-6 rounded-2xl shadow-lg mb-8 ${
-            theme === 'dark' ? 'bg-gray-800' : 'bg-white'
-          }`}
-        >
-          <div className="flex items-center space-x-2 mb-6">
-            <Activity className="w-6 h-6 text-primary-600" />
-            <h2 className={`text-xl font-semibold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
-              Currency Strength Heatmap
-            </h2>
-          </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {heatmapData.map((currency, index) => (
-              <motion.div
-                key={currency.currency}
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.5, delay: index * 0.1 }}
-                className={`p-4 rounded-lg ${
-                  theme === 'dark' ? 'bg-gray-700' : 'bg-gray-50'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <span className={`text-lg font-semibold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
-                    {currency.currency}
-                  </span>
-                  <div className="flex items-center space-x-1">
-                    {currency.change > 0 ? (
-                      <TrendingUp className="w-4 h-4 text-green-500" />
-                    ) : (
-                      <TrendingDown className="w-4 h-4 text-red-500" />
-                    )}
-                    <span className={`text-sm ${currency.change > 0 ? 'text-green-500' : 'text-red-500'}`}>
-                      {currency.change > 0 ? '+' : ''}{currency.change.toFixed(2)}%
-                    </span>
-                  </div>
-                </div>
-                <div className="mb-2">
-                  <div className="flex justify-between text-sm mb-1">
-                    <span className={`${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>
-                      Strength
-                    </span>
-                    <span className={`${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
-                      {currency.strength.toFixed(1)}
-                    </span>
-                  </div>
-                  <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2">
-                    <div 
-                      className={`h-2 rounded-full ${getStrengthColor(currency.strength)}`}
-                      style={{ width: `${currency.strength}%` }}
-                    />
-                  </div>
-                </div>
-                <div className="text-xs text-gray-500 dark:text-gray-400">
-                  Volatility: {currency.volatility.toFixed(1)}%
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        </motion.div>
-
-        {/* Market News & Sentiment */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.8 }}
-          className={`p-6 rounded-2xl shadow-lg ${
-            theme === 'dark' ? 'bg-gray-800' : 'bg-white'
-          }`}
-        >
-          <div className="flex items-center space-x-2 mb-6">
-            <AlertCircle className="w-6 h-6 text-primary-600" />
-            <h2 className={`text-xl font-semibold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
-              Market News & Sentiment
-            </h2>
-          </div>
-
-          <div className="space-y-4">
-            {newsData.map((news, index) => (
-              <motion.div
-                key={index}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.5, delay: index * 0.1 }}
-                className={`p-4 rounded-lg border-l-4 ${
-                  news.sentiment === 'positive' ? 'border-green-500 bg-green-50 dark:bg-green-900' :
-                  news.sentiment === 'negative' ? 'border-red-500 bg-red-50 dark:bg-red-900' :
-                  'border-yellow-500 bg-yellow-50 dark:bg-yellow-900'
-                }`}
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-2 mb-2">
-                      <span className={`px-2 py-1 rounded text-xs font-medium ${
-                        theme === 'dark' ? 'bg-gray-700 text-white' : 'bg-gray-100 text-gray-800'
-                      }`}>
-                        {news.currency}
-                      </span>
-                      <span className={`px-2 py-1 rounded text-xs font-medium ${
-                        news.impact === 'high' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' :
-                        news.impact === 'medium' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
-                        'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                      }`}>
-                        {news.impact.toUpperCase()} IMPACT
-                      </span>
-                    </div>
-                    <h3 className={`text-lg font-medium mb-2 ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
-                      {news.headline}
-                    </h3>
-                    <p className={`text-sm ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>
-                      {news.time}
-                    </p>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    {getSentimentIcon(news.sentiment)}
-                    <span className={`text-sm font-medium ${getSentimentColor(news.sentiment)}`}>
-                      {news.sentiment.toUpperCase()}
-                    </span>
-                  </div>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        </motion.div>
-      </div>
-    </div>
+        {highLow.high !== null && highLow.low !== null && !error && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3, duration: 0.5 }}
+            className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6"
+          >
+            <div className="p-4 bg-green-50 dark:bg-green-900 rounded-lg flex items-center space-x-3 shadow-sm">
+              <Maximize2 className="w-6 h-6 text-green-600 dark:text-green-400" />
+              <div>
+                <p className={`text-sm font-medium ${theme === "dark" ? "text-gray-300" : "text-gray-600"}`}>All-time High (from available data)</p>
+                <p className={`text-xl font-bold ${theme === "dark" ? "text-white" : "text-gray-900"}`}>{highLow.high.toFixed(4)}</p>
+              </div>
+            </div>
+            <div className="p-4 bg-red-50 dark:bg-red-900 rounded-lg flex items-center space-x-3 shadow-sm">
+              <Minimize2 className="w-6 h-6 text-red-600 dark:text-red-400" />
+              <div>
+                <p className={`text-sm font-medium ${theme === "dark" ? "text-gray-300" : "text-gray-600"}`}>All-time Low (from available data)</p>
+                <p className={`text-xl font-bold ${theme === "dark" ? "text-white" : "text-gray-900"}`}>{highLow.low.toFixed(4)}</p>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </Card>
+    </motion.div>
   );
 };
 
-export default MarketAnalysis;
+export default MarketAnalysis; 

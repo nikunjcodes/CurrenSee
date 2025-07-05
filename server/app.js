@@ -3,6 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import connectDB from './config/db.js';
 import authRoutes from './routes/authRoutes.js';
+import currencyRoutes from './routes/currencyRoutes.js';
 
 dotenv.config();
 const app = express();
@@ -19,5 +20,6 @@ connectDB();
 
 // Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/currency', currencyRoutes);
 
 export default app;

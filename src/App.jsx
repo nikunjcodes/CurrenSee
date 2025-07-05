@@ -13,7 +13,7 @@ import Dashboard from "./pages/Dashboard.jsx"
 import LoadingSpinner from "./components/LoadingSpinner.jsx"
 import ProtectedRoute from "./components/ProtectedRoute.jsx"
 import OfflineBanner from "./components/OfflineBanner.jsx"
-import CurrencyVisualizer from "./pages/CurrencyVisualizer.jsx"
+import CurrencyConverter from "./pages/CurrencyConverter.jsx"
 import MarketAnalysis from "./pages/MarketAnalysis.jsx"
 
 function App() {
@@ -49,10 +49,10 @@ function App() {
             }
           />
           <Route
-            path="/visualizer"
+            path="/converter"
             element={
               <ProtectedRoute>
-                <CurrencyVisualizer />
+                <CurrencyConverter />
               </ProtectedRoute>
             }
           />
